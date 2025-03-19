@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pneumonia Detection System</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+</head>
+<body class="bg-gray-100">
+    <div class="container mx-auto px-4 py-8">
+        <h1 class="text-4xl font-bold text-center mb-8">Pneumonia Detection System</h1>
+        
+        <!-- Upload Section -->
+        <div class="bg-white rounded-lg shadow-md p-6 mb-8">
+            <h2 class="text-2xl font-semibold mb-4">Upload X-ray Image</h2>
+            <form id="upload-form" class="space-y-4">
+                <div class="flex items-center justify-center w-full">
+                    <label class="flex flex-col w-full h-32 border-4 border-dashed hover:bg-gray-100 hover:border-gray-300">
+                        <div class="flex flex-col items-center justify-center pt-7">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="w-12 h-12 text-gray-400 group-hover:text-gray-600" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clip-rule="evenodd" />
+                            </svg>
+                            <p class="pt-1 text-sm tracking-wider text-gray-400 group-hover:text-gray-600">Select X-ray image</p>
+                        </div>
+                        <input type="file" class="opacity-0" name="file" accept="image/*" required />
+                    </label>
+                </div>
+                <button type="submit" class="w-full bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600">
+                    Analyze Image
+                </button>
+            </form>
+        </div>
+
+        <!-- Loading Indicator -->
+        <div id="loading" class="hidden">
+            <div class="flex justify-center items-center mb-8">
+                <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+            </div>
+        </div>
+
+        <!-- Results Section -->
+        <div id="results" class="hidden space-y-8">
+            <!-- Prediction Results -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <!-- Original Image -->
+                <div class="bg-white rounded-lg shadow-md p-4">
+                    <h3 class="text-xl font-semibold mb-4">Original Image</h3>
+                    <img id="original-image" src="" alt="Original X-ray" class="w-full h-auto">
+                </div>
+
+                <!-- Custom CNN Results -->
+                <div class="bg-white rounded-lg shadow-md p-4">
+                    <h3 class="text-xl font-semibold mb-4">Custom CNN Analysis</h3>
+                    <div id="custom-prediction" class="mb-4"></div>
+                    <div class="mb-4">
+                        <div class="w-full bg-gray-200 rounded-full h-2.5">
+                            <div id="custom-probability-bar" class="bg-blue-600 h-2.5 rounded-full" style="width: 0%"></div>
+                        </div>
+                    </div>
+                    <img id="custom-heatmap" src="" alt="Custom CNN Heatmap" class="w-full h-auto">
+                </div>
+
+                <!-- ResNet Results -->
+                <div class="bg-white rounded-lg shadow-md p-4">
+                    <h3 class="text-xl font-semibold mb-4">ResNet101 Analysis</h3>
+                    <div id="resnet-prediction" class="mb-4"></div>
+                    <div class="mb-4">
+                        <div class="w-full bg-gray-200 rounded-full h-2.5">
+                            <div id="resnet-probability-bar" class="bg-blue-600 h-2.5 rounded-full" style="width: 0%"></div>
+                        </div>
+                    </div>
+                    <img id="resnet-heatmap" src="" alt="ResNet Heatmap" class="w-full h-auto">
+                </div>
+            </div>
+
+            <!-- Ensemble Prediction -->
+            <div class="bg-white rounded-lg shadow-md p-4">
+                <h3 class="text-xl font-semibold mb-4">Ensemble Prediction</h3>
+                <div id="ensemble-prediction" class="text-center">
+                    <p class="text-3xl font-bold mb-2"></p>
+                    <div class="w-full max-w-md mx-auto bg-gray-200 rounded-full h-2.5">
+                        <div id="ensemble-probability-bar" class="bg-blue-600 h-2.5 rounded-full" style="width: 0%"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Model Metrics Section -->
+        {% if metrics %}
+
+
+<div class="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-8">
+    
+
+
+{% endif %}
+    </div>
+
+    <script>
+        $(document).ready(function() {
+            $('#upload-form').on('submit', function(e) {
+                e.preventDefault();
+                
+                $('#loading').removeClass('hidden');
+                $('#results').addClass('hidden');
+                
+                var formData = new FormData(this);
+                
+                $.ajax({
+                    url: '/predict',
+                    type: 'POST',
+                    data: formData,
+                    processData: false,
+                    contentType: false,
+                    success: function(response) {
+                        $('#loading').addClass('hidden');
+                        $('#results').removeClass('hidden');
+                        
+                        if (response.error) {
+                            alert(response.error);
+                            return;
+                        }
+                        
+                        // Update images
+                        $('#original-image').attr('src', response.original_image);
+                        $('#custom-heatmap').attr('src', response.custom_cnn.heatmap);
+                        $('#resnet-heatmap').attr('src', response.resnet101.heatmap);
+                        
+                        // Update Custom CNN results
+                        const customProb = (response.custom_cnn.probability * 100).toFixed(2);
+                        $('#custom-prediction').html(`
+                            <p class="font-semibold">Prediction: ${response.custom_cnn.prediction}</p>
+                            <p>Probability: ${customProb}%</p>
+                        `);
+                        $('#custom-probability-bar').css('width', `${customProb}%`);
+                        
+                        // Update ResNet results
+                        const resnetProb = (response.resnet101.probability * 100).toFixed(2);
+                        $('#resnet-prediction').html(`
+                            <p class="font-semibold">Prediction: ${response.resnet101.prediction}</p>
+                            <p>Probability: ${resnetProb}%</p>
+                        `);
+                        $('#resnet-probability-bar').css('width', `${resnetProb}%`);
+                        
+                        // Update Ensemble results
+                        const ensembleProb = (response.ensemble.probability * 100).toFixed(2);
+                        $('#ensemble-prediction p').text(`${response.ensemble.prediction} (${ensembleProb}%)`);
+                        $('#ensemble-probability-bar').css('width', `${ensembleProb}%`);
+                    },
+                    error: function() {
+                        $('#loading').addClass('hidden');
+                        alert('An error occurred during processing.');
+                    }
+                });
+            });
+        });
+    </script>
+</body>
+</html>
